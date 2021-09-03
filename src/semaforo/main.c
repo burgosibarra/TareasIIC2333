@@ -14,6 +14,8 @@ pid_t child_pid;
 
 void handle_sigalrm(int sig)
 {
+    printf("(%i) Semáforo %i: he recibido un SIGALRM procedo a cambiar mi estado\n", getpid(), semaforo_id);
+
     if (changes%2 == 0) 
     {
         printf("(%i) Semáforo %i: en VERDE\n", getpid(), semaforo_id);
@@ -29,7 +31,8 @@ void handle_sigalrm(int sig)
 void handle_sigabrt(int sig)
 {
     /* aqui va el código que procesa la señal */
-    printf("ME LLEGÓ UN SIGABRT WTF\n");
+    //printf("ME LLEGÓ UN SIGABRT WTF\n");
+    printf("(%i) Semáforo %i: he recibido un SIGABRT procedo a escribir mi archivo\n", getpid(), semaforo_id);
     char *path;
     if (semaforo_id == 1)
     {
@@ -49,6 +52,7 @@ void handle_sigabrt(int sig)
 
     // Se cierra el archivo (si no hay leak)
     fclose(output);
+    printf("(%i) Semáforo %i: mi archivo esta listo\n", getpid(), semaforo_id);
 
     printf("%s\n", path);
 
