@@ -41,6 +41,7 @@ void fabrica_connect_sigaction(int sig, void (*handler)(int, siginfo_t *, void *
 
 void fabrica_handle_sigalarm(int signum)
 {
+    printf("(%i) Fábrica: recibí SIGABRT, crearé al repartidor %i\n", getpid(), repartidores_creados + 1);
     pid_t pid = fork();
     if (pid >= 0)
     {
@@ -95,10 +96,12 @@ void fabrica_handle_sigalarm(int signum)
 
 void fabrica_handle_sigabrt(int sigum)
 {
+    printf("(%i) Fábrica: recibí SIGABRT, informaré a los repartidores que deben terminar\n", getpid());    
     for(int index = 0; index < cantidad_repartidores; index++)
     {
         if (repartidores[index])
         {
+            printf("(%i) Fábrica: recibí SIGABRT, informando a repartidor %i\n", getpid(), index);    
             kill(repartidores[index], SIGABRT);
         }
     }
@@ -106,12 +109,14 @@ void fabrica_handle_sigabrt(int sigum)
 
 void fabrica_handle_sigint(int sigum)
 {
-    
+  printf("(%i) Fábrica: recibí SIGING, lo ignoro\n", getpid());    
 }
 
 void fabrica_handle_sigusr1(int sigum, siginfo_t *siginfo, void *context)
 {
     int semaforo_status = siginfo->si_value.sival_int;
+
+    printf("(%i) Fábrica: recibí SIGUSR1 del semáforo %i, informaré a los repartidores\n", getpid(), abs(semaforo_status));
 
     for(int index = 0; index < cantidad_repartidores; index++)
     {
@@ -119,6 +124,7 @@ void fabrica_handle_sigusr1(int sigum, siginfo_t *siginfo, void *context)
         {
             union sigval sig = {};
             sig.sival_int = semaforo_status;
+            printf("(%i) Fábrica: recibí SIGUSR1 del semáforo %i, informando a repartidor %i\n", getpid(), abs(semaforo_status), index);
             sigqueue(repartidores[index], SIGUSR1, sig);
         }
     }
@@ -132,7 +138,8 @@ void fabrica(int array[2]) /* Ojo con el nombre */
     signal(SIGINT, fabrica_handle_sigint);
     fabrica_connect_sigaction(SIGUSR1, fabrica_handle_sigusr1);
 
-    /*comprobar con main.c*/
+    printf("(%i) Fábrica: lista para trabajar\n", getpid());
+    
     cantidad_repartidores = array[0];
     repartidores = calloc(cantidad_repartidores, sizeof(pid_t));
     tiempo_entre_repartidores = array[1];
@@ -147,12 +154,14 @@ void fabrica(int array[2]) /* Ojo con el nombre */
         if (repartidores[index])
         {
           waitpid(repartidores[index], &STATUS, 0);
-          printf("pid %i terminó\n", repartidores[index]);
+          //printf("pid %i terminó\n", repartidores[index]);
         }
     }
 
     free(repartidores);
 
+    printf("(%i) Fábrica: todos los repartidores han terminado\n", getpid());
+    printf("(%i) Fábrica: terminé mi trabajo\n", getpid());
     exit(0);
 }
 
@@ -168,14 +177,14 @@ int main(int argc, char *argv[])
   char* delay[3]; //arreglo de los delay de los semaforos
   int semaforos_pid[3]; //los pid de los procesos semaforo
 
-  printf("I'm the DCCUBER process and my PID is: %i\n", getpid());
+  printf("(%i) DCCUBER: Hi! I'm the DCCUBER process\n", getpid());
 
   char *filename = argv[1];
   InputFile *data_in = read_file(filename);
 
-  printf("Leyendo el archivo %s...\n", filename);
-  printf("- Lineas en archivo: %i\n", data_in->len);
-  printf("- Contenido del archivo:\n");
+  printf("(%i) DCCUBER: leyendo el archivo %s...\n", getpid(), filename);
+  printf("(%i) DCCUBER: el archivo tiene %i lineas\n", getpid(), data_in->len);
+  printf("(%i) DCCUBER: el contenido del archivo es\n", getpid());
 
   printf("\t- ");
   for (int i = 0; i < 4; i++)
@@ -189,6 +198,7 @@ int main(int argc, char *argv[])
   {
     printf("%s, ", data_in->lines[1][i]);
   }
+  printf("\n");
 
   posicion_sem_1 = atoi(data_in->lines[0][0]);
   posicion_sem_2 = atoi(data_in->lines[0][1]);
@@ -198,17 +208,18 @@ int main(int argc, char *argv[])
   tiempo_entre_repartidores = atoi(data_in->lines[1][0]);
   cantidad_repartidores = atoi(data_in->lines[1][1]);
 
-  printf("\n");
+  //printf("\n");
   delay[0]  = data_in->lines[1][2];
-  printf("%s\n",delay[0]);
+  //printf("%s\n",delay[0]);
   delay[1] = data_in->lines[1][3];
-  printf("%s\n", delay[1]);
+  //printf("%s\n", delay[1]);
   delay[2] = data_in->lines[1][4];
-  printf("%s\n",delay[2]);
-  printf("Liberando memoria...\n");
+  //printf("%s\n",delay[2]);
+
+  printf("(%i) DCCUBER: liberando el archivo de la memoria\n", getpid());
   input_file_destroy(data_in);
   
-  printf("Creando un proceso hijo\n");
+  printf("(%i) DCCUBER: creando el proceso fábrica\n", getpid());
   //connect_sigaction(SIGUSR1, handle_sigusr1);
   pid_t fabrica_pid = fork();
   if (fabrica_pid == 0)
@@ -217,6 +228,7 @@ int main(int argc, char *argv[])
     fabrica(array);
   }
   
+  printf("(%i) DCCUBER: creando los procesos semáforos\n", getpid());
   for (int i = 0; i < 3; i++)
   {
     other_id = fork();
@@ -228,19 +240,28 @@ int main(int argc, char *argv[])
       sprintf(id,"%d", i+1);
       
       sprintf(parent,"%d", getppid());
-      printf("hola\n");
+      //printf("hola\n");
       char *args[] = {"semaforo", id, delay[i], parent, NULL};
       execv("./semaforo", args);
-      printf("No me debería leer\n");
+      //printf("No me debería leer\n");
     }
   }
-  printf("sigue el papito\n");
+  //printf("sigue el papito\n");
   //sleep(30);
   //kill(semaforos_pid[1], SIGABRT);
   int status;
-  waitpid(fabrica_pid, &status,0); //ojo
+  waitpid(fabrica_pid, &status,0);
+  printf("(%i) DCCUBER: proceso Fábrica ha terminado, procedo a retirar los procesos semáforo\n", getpid());
+  
+  printf("(%i) DCCUBER: retirando semáforo 1\n", getpid());
   kill(semaforos_pid[0], SIGABRT);
+  
+  printf("(%i) DCCUBER: retirando semáforo 2\n", getpid());
   kill(semaforos_pid[1], SIGABRT);
+  
+  printf("(%i) DCCUBER: retirando semáforo 3\n", getpid());
   kill(semaforos_pid[2], SIGABRT);
+
+  printf("(%i) DCCUBER: todos han terminado, hasta aquí llega mi trabajo\n", getpid());
   return 0;
 }
