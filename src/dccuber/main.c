@@ -12,6 +12,7 @@ static int cantidad_repartidores;
 static int tiempo_entre_repartidores;
 static int tiempo_entre_turnos;
 static pid_t* repartidores;
+static pid_t fabrica_alarma;
 
 int posicion_sem_1;
 int posicion_sem_2;
@@ -41,7 +42,7 @@ void fabrica_connect_sigaction(int sig, void (*handler)(int, siginfo_t *, void *
 
 void fabrica_handle_sigalarm(int signum)
 {
-    printf("(%i) Fábrica: recibí SIGABRT, crearé al repartidor %i\n", getpid(), repartidores_creados + 1);
+    printf("(%i) Fábrica: recibí SIGALRM, crearé al repartidor %i\n", getpid(), repartidores_creados + 1);
     pid_t pid = fork();
     if (pid >= 0)
     {
@@ -52,9 +53,10 @@ void fabrica_handle_sigalarm(int signum)
     if (pid > 0)
     {
         repartidores[repartidores_creados] = pid;
-        if (repartidores_creados < cantidad_repartidores)
+        if (repartidores_creados == cantidad_repartidores)
         {
-            alarm(tiempo_entre_repartidores);
+            printf("(%i) Fábrica: ya he creado a todos los repartidores", getpid());
+            kill(fabrica_alarma, SIGKILL);
         }
     }
     /* Si pid == 0 es repartidor*/
@@ -122,10 +124,8 @@ void fabrica_handle_sigusr1(int sigum, siginfo_t *siginfo, void *context)
     {
         if (repartidores[index])
         {
-            union sigval sig = {};
-            sig.sival_int = semaforo_status;
             printf("(%i) Fábrica: recibí SIGUSR1 del semáforo %i, informando a repartidor %i\n", getpid(), abs(semaforo_status), index);
-            sigqueue(repartidores[index], SIGUSR1, sig);
+            send_signal_with_int(repartidores[index], semaforo_status);
         }
     }
 }
@@ -145,8 +145,26 @@ void fabrica(int array[2]) /* Ojo con el nombre */
     tiempo_entre_repartidores = array[1];
     repartidores_creados = 0;
 
-    alarm(1);
-    sleep(2); /* OJO con este valor */
+    pid_t fabrica = getpid();
+    fabrica_alarma = fork();
+    if (fabrica_alarma == 0)
+    {
+        while (1)
+        {
+            sleep(tiempo_entre_repartidores);
+            kill(fabrica, SIGALRM);
+        }
+    }
+    else if (fabrica_alarma > 0)
+    {
+        int STATUS;
+        waitpid(fabrica_alarma, &STATUS, 0);
+    }
+    else
+    {
+        perror("fork");
+        exit(0); 
+    }
 
     int STATUS;
     for (int index = 0; index < cantidad_repartidores; index++)
@@ -239,7 +257,7 @@ int main(int argc, char *argv[])
       char parent[20];
       sprintf(id,"%d", i+1);
       
-      sprintf(parent,"%d", getppid());
+      sprintf(parent,"%d", fabrica_pid);
       //printf("hola\n");
       char *args[] = {"semaforo", id, delay[i], parent, NULL};
       execv("./semaforo", args);
@@ -255,12 +273,15 @@ int main(int argc, char *argv[])
   
   printf("(%i) DCCUBER: retirando semáforo 1\n", getpid());
   kill(semaforos_pid[0], SIGABRT);
+  waitpid(semaforos_pid[0], &status,0);
   
   printf("(%i) DCCUBER: retirando semáforo 2\n", getpid());
   kill(semaforos_pid[1], SIGABRT);
+  waitpid(semaforos_pid[1], &status,0);
   
   printf("(%i) DCCUBER: retirando semáforo 3\n", getpid());
   kill(semaforos_pid[2], SIGABRT);
+  waitpid(semaforos_pid[2], &status,0);
 
   printf("(%i) DCCUBER: todos han terminado, hasta aquí llega mi trabajo\n", getpid());
   return 0;
