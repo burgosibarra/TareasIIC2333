@@ -41,14 +41,16 @@ void fabrica_connect_sigaction(int sig, void (*handler)(int, siginfo_t *, void *
 
 void fabrica_handle_sigalarm(int signum)
 {
-    printf("Se activo alarm\n");
     pid_t pid = fork();
+    if (pid >= 0)
+    {
+      repartidores_creados ++;
+    }
 
     /* Si pid > 0 es fábrica*/
     if (pid > 0)
     {
         repartidores[repartidores_creados] = pid;
-        repartidores_creados ++;
         if (repartidores_creados < cantidad_repartidores)
         {
             alarm(tiempo_entre_repartidores);
@@ -77,10 +79,11 @@ void fabrica_handle_sigalarm(int signum)
       sprintf(tiempo_entre_turnos_char, "%d", tiempo_entre_turnos);
       
       char *args_fabrica[] = {"repartidor", repartidores_creados_char, tiempo_entre_turnos_char,char_int_1, char_int_2, char_int_3, char_int_4, NULL};
+      
       execv("./repartidor", args_fabrica);
-      printf("NO ME ESTOY EJECUTANDO");
+      perror("exec failed");
+      exit(EXIT_FAILURE);
 
-      //execlp("/.'../repartidor/repartidor'", repartidores_creados_char, tiempo_entre_turnos_char,char_int_1, char_int_2, char_int_3, char_int_4, NULL); /* OJO: hay que pasar parámetros */
     }
     /* Si pid < 0 es un fork() error*/
     else
@@ -139,11 +142,13 @@ void fabrica(int array[2]) /* Ojo con el nombre */
     sleep(2); /* OJO con este valor */
 
     int STATUS;
-    pid_t pid;
     for (int index = 0; index < cantidad_repartidores; index++)
     {
-        pid = wait(&STATUS);
-        printf("pid %i terminó\n", pid);
+        if (repartidores[index])
+        {
+          waitpid(repartidores[index], &STATUS, 0);
+          printf("pid %i terminó\n", repartidores[index]);
+        }
     }
 
     free(repartidores);
@@ -158,7 +163,7 @@ int valor_recibido = siginfo->si_value.sival_int;
 printf("%i\n", valor_recibido);
 }
 
-int main(int argc, char const *argv[])
+int main(int argc, char *argv[])
 {
   char* delay[3]; //arreglo de los delay de los semaforos
   int semaforos_pid[3]; //los pid de los procesos semaforo
