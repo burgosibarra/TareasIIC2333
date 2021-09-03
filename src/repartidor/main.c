@@ -200,6 +200,7 @@ int main(int argc, char *argv[])
         exit(0); 
     }
 
+    printf("(%i) Repartidor %i: terminé mi trabajo\n", getpid(), id);
     return 0;
 
 }
