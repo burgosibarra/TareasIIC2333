@@ -182,25 +182,24 @@ int main(int argc, char *argv[])
     /* Implementar avance*/
     parent = getpid();
     child = fork();
+
     if (child == 0)
     {
         while (1)
         {
             sleep(tiempo_entre_turnos);
             kill(parent, SIGALRM);
+
         }
     }
-    else if (child > 0)
-    {
-        int STATUS;
-        waitpid(child, &STATUS, 0);
-    }
-    else
+    else if (child < 0)
     {
         perror("fork");
         exit(0); 
     }
 
+    int STATUS;
+    waitpid(child, &STATUS, 0);
     printf("(%i) Repartidor %i: terminé mi trabajo\n", getpid(), id);
     return 0;
 

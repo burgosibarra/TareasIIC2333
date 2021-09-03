@@ -19,12 +19,12 @@ void handle_sigalrm(int sig)
     if (changes%2 == 0) 
     {
         printf("(%i) Semáforo %i: en VERDE\n", getpid(), semaforo_id);
-        send_signal_with_int(parent, semaforo_id);
+        //send_signal_with_int(parent, semaforo_id);
     }
     else
     {
         printf("(%i) Semáforo %i: en ROJO\n", getpid(), semaforo_id);
-        send_signal_with_int(parent, -semaforo_id);
+        //send_signal_with_int(parent, -semaforo_id);
     }
     changes++;
 }
