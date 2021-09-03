@@ -12,76 +12,84 @@ int semaforo_pid;
 int parent;
 pid_t child_pid;
 
-void handle_sigalrm(int sig){
+void handle_sigalrm(int sig)
+{
     if (changes%2 == 0) 
     {
-      printf("SEMAFORO %i EN VERDE\n", semaforo_id);
-      send_signal_with_int(parent, semaforo_id);
+        printf("(%i) Semáforo %i: en VERDE\n", getpid(), semaforo_id);
+        send_signal_with_int(parent, semaforo_id);
     }
     else
     {
-      printf("SEMAFORO %i EN ROJO\n", semaforo_id);
-      send_signal_with_int(parent, -semaforo_id);
+        printf("(%i) Semáforo %i: en ROJO\n", getpid(), semaforo_id);
+        send_signal_with_int(parent, -semaforo_id);
     }
     changes++;
 }
 void handle_sigabrt(int sig)
 {
-/* aqui va el código que procesa la señal */
-  printf("ME LLEGÓ UN SIGABRT WTF\n");
-  char *path;
-  if (semaforo_id == 1)
-  {
-    path = "semaforo_1.txt";
-  }else if (semaforo_id == 2)
-  {
-    path = "semaforo_2.txt";
-  }else
-  {
-    path = "semaforo_3.txt";
-  }
-  // Abrimos un archivo en modo de lectura
-  FILE *output = fopen(path, "w");
-  fprintf(output,"%i", changes);
+    /* aqui va el código que procesa la señal */
+    printf("ME LLEGÓ UN SIGABRT WTF\n");
+    char *path;
+    if (semaforo_id == 1)
+    {
+        path = "semaforo_1.txt";
+    }
+    else if (semaforo_id == 2)
+    {
+        path = "semaforo_2.txt";
+    }
+    else
+    {
+        path = "semaforo_3.txt";
+    }
+    // Abrimos un archivo en modo de lectura
+    FILE *output = fopen(path, "w");
+    fprintf(output,"%i", changes);
 
-  // Se cierra el archivo (si no hay leak)
-  fclose(output);
+    // Se cierra el archivo (si no hay leak)
+    fclose(output);
 
-  printf("%s\n", path);
-  
-  kill(child_pid, SIGKILL);
+    printf("%s\n", path);
+
+    kill(child_pid, SIGKILL);
 }
 
 int main(int argc, char const *argv[])
 {
-  signal(SIGALRM, handle_sigalrm);
-  printf("I'm the SEMAFORO %s process and my PID is: %i\n",argv[1], getpid());
-  semaforo_id = atoi(argv[1]);
-  int delay = atoi(argv[2]);
-  parent = atoi(argv[3]);
+    signal(SIGALRM, handle_sigalrm);
+    //printf("I'm the SEMAFORO %s process and my PID is: %i\n",argv[1], getpid());
+    semaforo_id = atoi(argv[1]);
+    int delay = atoi(argv[2]);
+    parent = atoi(argv[3]);
 
-  printf("id: %i\n", semaforo_id);
-  printf("delay: %i\n", delay);
-  printf("parent pid: %i\n", parent);
-  signal(SIGABRT,handle_sigabrt);
-  changes = 0;
-  semaforo_pid = getpid();
-  child_pid = fork();
-  if (child_pid < 0)
-  {
-    perror("fork");
+    printf("(%i) Semáforo %i: listo para controlar el tránsito\n", getpid(), semaforo_id);
+    //printf("id: %i\n", semaforo_id);
+    //printf("delay: %i\n", delay);
+    //printf("parent pid: %i\n", parent);
+
+    signal(SIGABRT,handle_sigabrt);
+    changes = 0;
+    semaforo_pid = getpid();
+    child_pid = fork();
+    if (child_pid < 0)
+    {
+        perror("fork");
+        exit(0);
+    }
+    else if (child_pid == 0)
+    {
+        while (1)
+        {
+            sleep(delay);
+            kill(semaforo_pid, SIGALRM);
+            //printf("ALARM : %i\n",changes);
+        }
+    }
+
+    int STATUS;
+    waitpid(child_pid, &STATUS, 0);
+    printf("(%i) Semáforo %i: hasta aquí llega mi trabajo\n", getpid(), semaforo_id);
+
     exit(0);
-  }else if (child_pid == 0)
-  {
-    while (changes <= 10)
-  {
-    sleep(delay);
-    kill(semaforo_pid, SIGALRM);
-    changes++;
-    printf("ALARM : %i\n",changes);
-  }
-  }
-  wait(NULL);
-  
-  exit(0);
 }
