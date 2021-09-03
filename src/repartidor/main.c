@@ -71,7 +71,7 @@ void modificar_estados_semaforo()
 
 void repartidor_handle_sigabrt(int sigum)
 {
-    printf("(%i) Repartidor %i: recibí SIGABRT, proceda a escribir mi archivo\n", getpid(), id);
+    printf("(%i) Repartidor %i: recibí SIGABRT, procedo a escribir mi archivo\n", getpid(), id);
     outputfile();
     kill(child, SIGKILL);
 }
@@ -192,7 +192,8 @@ int main(int argc, char *argv[])
     }
     else if (child > 0)
     {
-        wait(NULL);
+        int STATUS;
+        waitpid(child, &STATUS, 0);
     }
     else
     {
