@@ -35,6 +35,8 @@ void outputfile()
     FILE *output_file = fopen(nombre_archivo, "w");
     fprintf(output_file, "%i,%i,%i,%i\n", turnos_a_semaforo_1, turnos_a_semaforo_2, turnos_a_semaforo_3, turnos_a_bodega);
     fclose(output_file);
+    
+    printf("%i: Repartidor %i escribió su archivo\n", getpid(), id);
 }
 
 void repartidor_connect_sigaction(int sig, void (*handler)(int, siginfo_t *, void *))
@@ -69,43 +71,54 @@ void modificar_estados_semaforo()
 
 void repartidor_handle_sigabrt(int sigum)
 {
+    printf("%i: Repartidor %i recibio SIGABRT, procede a escribir su archivo\n", getpid(), id);
     outputfile();
     kill(child, SIGKILL);
 }
 
 void repartidor_handle_sigint(int sigum)
 {
-    /* No hace nada */
+    printf("%i: Repartidor %i recibio SIGINT, no hace nada\n", getpid(), id);
 }
 
 void repartidor_handle_sigusr1(int sigum, siginfo_t *siginfo, void *context)
 {
     int semaforo_id = siginfo->si_value.sival_int;
     cambio_pendiente[0] = abs(semaforo_id);
+
     if (semaforo_id < 0){
         cambio_pendiente[1] = 0;
+        printf("%i: Repartidor %i recibio SIGUSR1, cambia estado del semaforo %i a LUZ ROJA\n", getpid(), id, semaforo_id);
     }
     else
     {
         cambio_pendiente[1] = 1;
+        printf("%i: Repartidor %i recibio SIGUSR1, cambia estado del semaforo %i a LUZ VERDE\n", getpid(), id, semaforo_id);
     }
     modificar_estados_semaforo();
 }
 
 void repartidor_handle_sigalarm(int sigum)
 {
+
     int siguiente_semaforo1 = posicion + 1 == posicion_3semaforos_bodega[0];
     int siguiente_semaforo2 = posicion + 1 == posicion_3semaforos_bodega[1];
     int siguiente_semaforo3 = posicion + 1 == posicion_3semaforos_bodega[2];
     int siguiente_bodega = posicion + 1 == posicion_3semaforos_bodega[3];
 
     turnos++;
+    printf("%i: Repartidor %i recibio SIGALRM, turno n° %i\n", getpid(), id, turnos);
 
     if (siguiente_semaforo1){
         if (estado_semaforo[0])
         {
             posicion ++;
             turnos_a_semaforo_1 = turnos;
+            printf("%i: Repartidor %i avanza a semaforo 1\n", getpid(), id);
+        }
+        else
+        {
+            printf("%i: Repartidor %i NO avanza a semaforo 1\n", getpid(), id);
         }
     }
     else if (siguiente_semaforo2)
@@ -114,6 +127,11 @@ void repartidor_handle_sigalarm(int sigum)
         {
             posicion ++;
             turnos_a_semaforo_2 = turnos;
+            printf("%i: Repartidor %i avanza a semaforo 2\n", getpid(), id);
+        }
+        else
+        {
+            printf("%i: Repartidor %i NO avanza a semaforo 2\n", getpid(), id);
         }
     }
     else if (siguiente_semaforo3)
@@ -122,34 +140,44 @@ void repartidor_handle_sigalarm(int sigum)
         {
             posicion ++;
             turnos_a_semaforo_3 = turnos;
+            printf("%i: Repartidor %i avanza a semaforo 3\n", getpid(), id);
+        }
+        else
+        {
+            printf("%i: Repartidor %i NO avanza a semaforo 3\n", getpid(), id);
         }
     }
     else if (siguiente_bodega)
     {
         posicion ++;
         turnos_a_bodega = turnos;
+        printf("%i: Repartidor %i queda en %i\n", getpid(), id, posicion);
+        printf("%i: Repartidor %i avanza a bodega\n", getpid(), id);
         kill(parent, SIGABRT);
     }
     else
     {
         posicion ++;
     }
+    printf("%i: Repartidor %i queda en %i\n", getpid(), id, posicion);
 }
 
-int main(int argc, char const *argv[])
+int main(int argc, char *argv[])
 {
     signal(SIGALRM, repartidor_handle_sigalarm);
     signal(SIGABRT, repartidor_handle_sigabrt);
     signal(SIGINT, repartidor_handle_sigint);
     repartidor_connect_sigaction(SIGUSR1, repartidor_handle_sigusr1);
 
-    printf("I AM A REPARTIDOR!!!!");
+
     id = atoi(argv[1]);
     tiempo_entre_turnos = atoi(argv[2]);
     posicion_3semaforos_bodega[0] = atoi(argv[3]);
     posicion_3semaforos_bodega[1] = atoi(argv[4]);
     posicion_3semaforos_bodega[2] = atoi(argv[5]);
     posicion_3semaforos_bodega[3] = atoi(argv[6]);
+
+    printf("%i: Repartidor %i creado\n", getpid(), id);
 
     /* Implementar avance*/
     parent = getpid();
