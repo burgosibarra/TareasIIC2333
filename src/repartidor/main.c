@@ -36,7 +36,7 @@ void outputfile()
     fprintf(output_file, "%i,%i,%i,%i\n", turnos_a_semaforo_1, turnos_a_semaforo_2, turnos_a_semaforo_3, turnos_a_bodega);
     fclose(output_file);
     
-    printf("%i: Repartidor %i escribió su archivo\n", getpid(), id);
+    printf("(%i) Repartidor %i: ya escribí el archivo archivo\n", getpid(), id);
 }
 
 void repartidor_connect_sigaction(int sig, void (*handler)(int, siginfo_t *, void *))
@@ -71,14 +71,14 @@ void modificar_estados_semaforo()
 
 void repartidor_handle_sigabrt(int sigum)
 {
-    printf("%i: Repartidor %i recibio SIGABRT, procede a escribir su archivo\n", getpid(), id);
+    printf("(%i) Repartidor %i: recibí SIGABRT, proceda a escribir mi archivo\n", getpid(), id);
     outputfile();
     kill(child, SIGKILL);
 }
 
 void repartidor_handle_sigint(int sigum)
 {
-    printf("%i: Repartidor %i recibio SIGINT, no hace nada\n", getpid(), id);
+    printf("(%i) Repartidor %i: recibí SIGINT, lo ignoro\n", getpid(), id);
 }
 
 void repartidor_handle_sigusr1(int sigum, siginfo_t *siginfo, void *context)
@@ -88,12 +88,12 @@ void repartidor_handle_sigusr1(int sigum, siginfo_t *siginfo, void *context)
 
     if (semaforo_id < 0){
         cambio_pendiente[1] = 0;
-        printf("%i: Repartidor %i recibio SIGUSR1, cambia estado del semaforo %i a LUZ ROJA\n", getpid(), id, semaforo_id);
+        printf("(%i) Repartidor %i: recibí SIGUSR1, cambio el estado del semaforo %i a LUZ ROJA\n", getpid(), id, semaforo_id);
     }
     else
     {
         cambio_pendiente[1] = 1;
-        printf("%i: Repartidor %i recibio SIGUSR1, cambia estado del semaforo %i a LUZ VERDE\n", getpid(), id, semaforo_id);
+        printf("(%i) Repartidor %i: recibí SIGUSR1, cambio el estado del semaforo %i a LUZ VERDE\n", getpid(), id, semaforo_id);
     }
     modificar_estados_semaforo();
 }
@@ -107,18 +107,18 @@ void repartidor_handle_sigalarm(int sigum)
     int siguiente_bodega = posicion + 1 == posicion_3semaforos_bodega[3];
 
     turnos++;
-    printf("%i: Repartidor %i recibio SIGALRM, turno n° %i\n", getpid(), id, turnos);
+    printf("(%i) Repartidor %i: recibí SIGALRM, ejecutando turno n° %i\n", getpid(), id, turnos);
 
     if (siguiente_semaforo1){
         if (estado_semaforo[0])
         {
             posicion ++;
             turnos_a_semaforo_1 = turnos;
-            printf("%i: Repartidor %i avanza a semaforo 1\n", getpid(), id);
+            printf("(%i) Repartidor %i: avanzo a semaforo 1\n", getpid(), id);
         }
         else
         {
-            printf("%i: Repartidor %i NO avanza a semaforo 1\n", getpid(), id);
+            printf("(%i) Repartidor %i: NO puedo avanzar a semaforo 1\n", getpid(), id);
         }
     }
     else if (siguiente_semaforo2)
@@ -127,11 +127,11 @@ void repartidor_handle_sigalarm(int sigum)
         {
             posicion ++;
             turnos_a_semaforo_2 = turnos;
-            printf("%i: Repartidor %i avanza a semaforo 2\n", getpid(), id);
+            printf("(%i) Repartidor %i: avanzo a semaforo 2\n", getpid(), id);
         }
         else
         {
-            printf("%i: Repartidor %i NO avanza a semaforo 2\n", getpid(), id);
+            printf("(%i) Repartidor %i: NO puedo avanzar a semaforo 2\n", getpid(), id);
         }
     }
     else if (siguiente_semaforo3)
@@ -140,26 +140,26 @@ void repartidor_handle_sigalarm(int sigum)
         {
             posicion ++;
             turnos_a_semaforo_3 = turnos;
-            printf("%i: Repartidor %i avanza a semaforo 3\n", getpid(), id);
+            printf("(%i) Repartidor %i: avanzo a semaforo 3\n", getpid(), id);
         }
         else
         {
-            printf("%i: Repartidor %i NO avanza a semaforo 3\n", getpid(), id);
+            printf("(%i) Repartidor %i: NO puedo avanzar a semaforo 3\n", getpid(), id);
         }
     }
     else if (siguiente_bodega)
     {
         posicion ++;
         turnos_a_bodega = turnos;
-        printf("%i: Repartidor %i queda en %i\n", getpid(), id, posicion);
-        printf("%i: Repartidor %i avanza a bodega\n", getpid(), id);
+        printf("(%i) Repartidor %i: avanzo a posicion %i\n", getpid(), id, posicion);
+        printf("(%i) Repartidor %i: llegué a bodega\n", getpid(), id);
         kill(parent, SIGABRT);
     }
     else
     {
         posicion ++;
     }
-    printf("%i: Repartidor %i queda en %i\n", getpid(), id, posicion);
+    printf("(%i) Repartidor %i: avanzo a posicion %i\n", getpid(), id, posicion);
 }
 
 int main(int argc, char *argv[])
@@ -177,7 +177,7 @@ int main(int argc, char *argv[])
     posicion_3semaforos_bodega[2] = atoi(argv[5]);
     posicion_3semaforos_bodega[3] = atoi(argv[6]);
 
-    printf("%i: Repartidor %i creado\n", getpid(), id);
+    printf("(%i) Repartidor %i: listo para trabajar\n", getpid(), id);
 
     /* Implementar avance*/
     parent = getpid();
