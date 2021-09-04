@@ -12,13 +12,15 @@ static int cantidad_repartidores;
 static int tiempo_entre_repartidores;
 static int tiempo_entre_turnos;
 static pid_t* repartidores;
-static pid_t fabrica_alarma;
+static pid_t fabrica_pid;
+/*static pid_t fabrica_alarma;*/
 
 int posicion_sem_1;
 int posicion_sem_2;
 int posicion_sem_3;
 int posicion_bodega;
 int other_id;
+int semaforos_pid[3]; //los pid de los procesos semaforo
 
 void fabrica_connect_sigaction(int sig, void (*handler)(int, siginfo_t *, void *))
 {
@@ -40,7 +42,8 @@ void fabrica_connect_sigaction(int sig, void (*handler)(int, siginfo_t *, void *
     sigaction(sig, &action, NULL);
 }
 
-void fabrica_handle_sigalarm(int signum)
+/*void fabrica_handle_sigalarm(int signum)*/
+void fabrica_crear_repartidor()
 {
     printf("(%i) Fábrica: recibí SIGALRM, crearé al repartidor %i\n", getpid(), repartidores_creados + 1);
     pid_t pid = fork();
@@ -56,7 +59,7 @@ void fabrica_handle_sigalarm(int signum)
         if (repartidores_creados == cantidad_repartidores)
         {
             printf("(%i) Fábrica: ya he creado a todos los repartidores\n", getpid());
-            kill(fabrica_alarma, SIGKILL);
+            /*kill(fabrica_alarma, SIGKILL);*/
         }
     }
     /* Si pid == 0 es repartidor*/
@@ -124,7 +127,7 @@ void fabrica_handle_sigusr1(int sigum, siginfo_t *siginfo, void *context)
     {
         if (repartidores[index])
         {
-            printf("(%i) Fábrica: recibí SIGUSR1 del semáforo %i, informando a repartidor %i\n", getpid(), abs(semaforo_status), index);
+            printf("(%i) Fábrica: recibí SIGUSR1 del semáforo %i, informando a repartidor %i\n", getpid(), abs(semaforo_status), index + 1);
             send_signal_with_int(repartidores[index], semaforo_status);
         }
     }
@@ -133,7 +136,7 @@ void fabrica_handle_sigusr1(int sigum, siginfo_t *siginfo, void *context)
 void fabrica(int array[2]) /* Ojo con el nombre */
 {
     // Conectamos las señales
-    signal(SIGALRM, fabrica_handle_sigalarm);
+    /*signal(SIGALRM, fabrica_handle_sigalarm);*/
     signal(SIGABRT, fabrica_handle_sigabrt);
     signal(SIGINT, fabrica_handle_sigint);
     fabrica_connect_sigaction(SIGUSR1, fabrica_handle_sigusr1);
@@ -145,8 +148,8 @@ void fabrica(int array[2]) /* Ojo con el nombre */
     tiempo_entre_repartidores = array[1];
     repartidores_creados = 0;
 
-    pid_t fabrica = getpid();
-    fabrica_alarma = fork();
+    /*pid_t fabrica = getpid();*/
+    /*fabrica_alarma = fork();
     if (fabrica_alarma == 0)
     {
         while (1)
@@ -159,11 +162,18 @@ void fabrica(int array[2]) /* Ojo con el nombre */
     {
         int STATUS;
         waitpid(fabrica_alarma, &STATUS, 0);
+        printf("(%i) Fábrica: ahora debo esperar a cada repartidor\n", getpid());
     }
     else
     {
         perror("fork");
         exit(0); 
+    }*/
+
+    while (repartidores_creados < cantidad_repartidores)
+    {
+      sleep(tiempo_entre_repartidores);
+      fabrica_crear_repartidor();
     }
 
     int STATUS;
@@ -171,7 +181,12 @@ void fabrica(int array[2]) /* Ojo con el nombre */
     {
         if (repartidores[index])
         {
-          waitpid(repartidores[index], &STATUS, 0);
+          while (waitpid(repartidores[index], &STATUS, 0) == -1)
+          {
+            /* Nada*/
+            /*printf("Estoy esperando nuevamente a %i\n", repartidores[index]);*/
+          }
+          printf("(%i) Fábrica: Repartidor %i (%i) ha terminado\n", getpid(), index + 1, repartidores[index]);
           //printf("pid %i terminó\n", repartidores[index]);
         }
     }
@@ -183,17 +198,23 @@ void fabrica(int array[2]) /* Ojo con el nombre */
     exit(0);
 }
 
-void handle_sigusr1(
-int sig, siginfo_t *siginfo, void *ucontext)
+void handle_sigint(int sigum){
+  kill(fabrica_pid, SIGABRT);
+  kill(semaforos_pid[1], SIGABRT);
+  kill(semaforos_pid[2], SIGABRT);
+  kill(semaforos_pid[3], SIGABRT);
+}
+
+void handle_sigusr1(int sig, siginfo_t *siginfo, void *ucontext)
 {
-int valor_recibido = siginfo->si_value.sival_int;
-printf("%i\n", valor_recibido);
+  int valor_recibido = siginfo->si_value.sival_int;
+  printf("%i\n", valor_recibido);
 }
 
 int main(int argc, char *argv[])
 {
+  signal(SIGINT, handle_sigint);
   char* delay[3]; //arreglo de los delay de los semaforos
-  int semaforos_pid[3]; //los pid de los procesos semaforo
 
   printf("(%i) DCCUBER: Hi! I'm the DCCUBER process\n", getpid());
 
@@ -239,7 +260,7 @@ int main(int argc, char *argv[])
   
   printf("(%i) DCCUBER: creando el proceso fábrica\n", getpid());
   //connect_sigaction(SIGUSR1, handle_sigusr1);
-  pid_t fabrica_pid = fork();
+  fabrica_pid = fork();
   if (fabrica_pid == 0)
   {
     int array[2] = {cantidad_repartidores, tiempo_entre_repartidores};
@@ -268,20 +289,32 @@ int main(int argc, char *argv[])
   //sleep(30);
   //kill(semaforos_pid[1], SIGABRT);
   int status;
-  waitpid(fabrica_pid, &status,0);
+  while (waitpid(fabrica_pid, &status, 0) == -1)
+  {
+
+  }
   printf("(%i) DCCUBER: proceso Fábrica ha terminado, procedo a retirar los procesos semáforo\n", getpid());
   
   printf("(%i) DCCUBER: retirando semáforo 1\n", getpid());
   kill(semaforos_pid[0], SIGABRT);
-  waitpid(semaforos_pid[0], &status,0);
+  while (waitpid(semaforos_pid[0], &status, 0) == -1)
+  {
+
+  }
   
   printf("(%i) DCCUBER: retirando semáforo 2\n", getpid());
   kill(semaforos_pid[1], SIGABRT);
-  waitpid(semaforos_pid[1], &status,0);
+  while (waitpid(semaforos_pid[1], &status, 0) == -1)
+  {
+
+  }
   
   printf("(%i) DCCUBER: retirando semáforo 3\n", getpid());
   kill(semaforos_pid[2], SIGABRT);
-  waitpid(semaforos_pid[2], &status,0);
+  while (waitpid(semaforos_pid[2], &status, 0) == -1)
+  {
+
+  }
 
   printf("(%i) DCCUBER: todos han terminado, hasta aquí llega mi trabajo\n", getpid());
   return 0;

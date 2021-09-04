@@ -16,17 +16,18 @@ void handle_sigalrm(int sig)
 {
     printf("(%i) Semáforo %i: he recibido un SIGALRM procedo a cambiar mi estado\n", getpid(), semaforo_id);
 
+    changes++;
+
     if (changes%2 == 0) 
     {
         printf("(%i) Semáforo %i: en VERDE\n", getpid(), semaforo_id);
-        //send_signal_with_int(parent, semaforo_id);
+        send_signal_with_int(parent, semaforo_id);
     }
     else
     {
         printf("(%i) Semáforo %i: en ROJO\n", getpid(), semaforo_id);
-        //send_signal_with_int(parent, -semaforo_id);
+        send_signal_with_int(parent, -semaforo_id);
     }
-    changes++;
 }
 void handle_sigabrt(int sig)
 {
@@ -92,7 +93,10 @@ int main(int argc, char const *argv[])
     }
 
     int STATUS;
-    waitpid(child_pid, &STATUS, 0);
+    while (waitpid(child_pid, &STATUS, 0) == -1)
+    {
+
+    }
     printf("(%i) Semáforo %i: hasta aquí llega mi trabajo\n", getpid(), semaforo_id);
 
     exit(0);
