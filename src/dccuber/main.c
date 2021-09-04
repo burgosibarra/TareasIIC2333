@@ -52,10 +52,10 @@ void fabrica_handle_sigalarm(int signum)
     /* Si pid > 0 es fábrica*/
     if (pid > 0)
     {
-        repartidores[repartidores_creados] = pid;
+        repartidores[repartidores_creados - 1] = pid;
         if (repartidores_creados == cantidad_repartidores)
         {
-            printf("(%i) Fábrica: ya he creado a todos los repartidores", getpid());
+            printf("(%i) Fábrica: ya he creado a todos los repartidores\n", getpid());
             kill(fabrica_alarma, SIGKILL);
         }
     }
