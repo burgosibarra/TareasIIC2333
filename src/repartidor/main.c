@@ -19,10 +19,8 @@ static int turnos_a_semaforo_2 = -1;
 static int turnos_a_semaforo_3 = -1;
 static int turnos_a_bodega = -1;
 static int tiempo_entre_turnos;
-
-/*static pid_t parent;
-static pid_t child;*/
-
+static volatile sig_atomic_t operativo = 1;
+/*
 void outputfile()
 {
     int cantidad = (int) floor(log10(abs(id))) + 1;
@@ -37,7 +35,22 @@ void outputfile()
     fclose(output_file);
     
     printf("(%i) Repartidor %i: ya escribí el archivo archivo\n", getpid(), id);
+}*/
+
+void outputfile()
+{
+    char filename[27]; 
+    sprintf( filename, "repartidor_%i.txt", id );
+    FILE *output_file = fopen(filename, "w");
+    fprintf(output_file, "%i,%i,%i,%i\n", turnos_a_semaforo_1, turnos_a_semaforo_2, turnos_a_semaforo_3, turnos_a_bodega);
+    fclose(output_file);
+
+    // Se cierra el archivo (si no hay leak)
+    //fclose(output);
+    
+    printf("(%i) Repartidor %i: ya escribí el archivo archivo\n", getpid(), id);
 }
+
 
 void repartidor_connect_sigaction(int sig, void (*handler)(int, siginfo_t *, void *))
 {
@@ -72,8 +85,7 @@ void modificar_estados_semaforo()
 void repartidor_handle_sigabrt(int sigum)
 {
     printf("(%i) Repartidor %i: recibí SIGABRT, procedo a escribir mi archivo\n", getpid(), id);
-    outputfile();
-    /*kill(child, SIGKILL);*/
+    operativo = 0;
 }
 
 void repartidor_handle_sigint(int sigum)
@@ -84,31 +96,29 @@ void repartidor_handle_sigint(int sigum)
 void repartidor_handle_sigusr1(int sigum, siginfo_t *siginfo, void *context)
 {
     int semaforo_id = siginfo->si_value.sival_int;
-    cambio_pendiente[0] = abs(semaforo_id);
+    cambio_pendiente[0] = abs(semaforo_id) - 1;
 
     if (semaforo_id < 0){
         cambio_pendiente[1] = 0;
-        printf("(%i) Repartidor %i: recibí SIGUSR1, cambio el estado del semaforo %i a LUZ ROJA\n", getpid(), id, semaforo_id);
+        printf("(%i) Repartidor %i: recibí SIGUSR1, cambio el estado del semaforo %i a LUZ ROJA\n", getpid(), id, abs(semaforo_id));
     }
     else
     {
         cambio_pendiente[1] = 1;
-        printf("(%i) Repartidor %i: recibí SIGUSR1, cambio el estado del semaforo %i a LUZ VERDE\n", getpid(), id, semaforo_id);
+        printf("(%i) Repartidor %i: recibí SIGUSR1, cambio el estado del semaforo %i a LUZ VERDE\n", getpid(), id, abs(semaforo_id));
     }
     modificar_estados_semaforo();
 }
 
 void avanzar()
 {
-
     int siguiente_semaforo1 = posicion + 1 == posicion_3semaforos_bodega[0];
     int siguiente_semaforo2 = posicion + 1 == posicion_3semaforos_bodega[1];
     int siguiente_semaforo3 = posicion + 1 == posicion_3semaforos_bodega[2];
     int siguiente_bodega = posicion + 1 == posicion_3semaforos_bodega[3];
 
     turnos++;
-    /*printf("(%i) Repartidor %i: recibí SIGALRM, ejecutando turno n° %i\n", getpid(), id, turnos);*/
-    printf("(%i) Repartidor %i: Ejecutando turno n° %i\n", getpid(), id, turnos);
+    printf("(%i) Repartidor %i: recibí SIGALRM, ejecutando turno n° %i\n", getpid(), id, turnos);
 
     if (siguiente_semaforo1){
         if (estado_semaforo[0])
@@ -154,7 +164,7 @@ void avanzar()
         turnos_a_bodega = turnos;
         printf("(%i) Repartidor %i: avanzo a posicion %i\n", getpid(), id, posicion);
         printf("(%i) Repartidor %i: llegué a bodega\n", getpid(), id);
-        kill(getpid(), SIGABRT);
+        operativo = 0;
     }
     else
     {
@@ -165,10 +175,9 @@ void avanzar()
 
 int main(int argc, char *argv[])
 {
-    /*signal(SIGALRM, repartidor_handle_sigalarm);*/
+    repartidor_connect_sigaction(SIGUSR1, repartidor_handle_sigusr1);
     signal(SIGABRT, repartidor_handle_sigabrt);
     signal(SIGINT, repartidor_handle_sigint);
-    repartidor_connect_sigaction(SIGUSR1, repartidor_handle_sigusr1);
 
     id = atoi(argv[1]);
     tiempo_entre_turnos = atoi(argv[2]);
@@ -179,35 +188,14 @@ int main(int argc, char *argv[])
 
     printf("(%i) Repartidor %i: listo para trabajar\n", getpid(), id);
 
-    /* Implementar avance*/
-    /*parent = getpid();
-    child = fork();*/
-
-    /*if (child == 0)
-    {
-        while (1)
-        {
-            sleep(tiempo_entre_turnos);
-            kill(parent, SIGALRM);
-
+    while (operativo){
+        sleep(tiempo_entre_turnos);
+        if (operativo){
+            avanzar();
         }
     }
-    else if (child < 0)
-    {
-        perror("fork");
-        exit(0); 
-    }*/
 
-    while (posicion < posicion_3semaforos_bodega[3])
-    {
-        sleep(tiempo_entre_turnos);
-        /*kill(getpid(), SIGALRM);*/
-        /*printf("SE ENVIO LA SEÑAL\n");*/
-        avanzar();
-    }
-
-    /*int STATUS;*/
-    /*waitpid(child, &STATUS, 0);*/
+    outputfile();
     printf("(%i) Repartidor %i: terminé mi trabajo\n", getpid(), id);
     return 0;
 

@@ -29,10 +29,15 @@ void handle_sigalrm(int sig)
         send_signal_with_int(parent, -semaforo_id);
     }
 }
+
+void handle_sigint(int sigum)
+{  
+    printf("(%i) Semáforo %i: he recibido un SIGINT, lo ignoro\n", getpid(), semaforo_id);
+}
+
 void handle_sigabrt(int sig)
 {
     /* aqui va el código que procesa la señal */
-    //printf("ME LLEGÓ UN SIGABRT WTF\n");
     printf("(%i) Semáforo %i: he recibido un SIGABRT procedo a escribir mi archivo\n", getpid(), semaforo_id);
     char *path;
     if (semaforo_id == 1)
@@ -63,15 +68,12 @@ void handle_sigabrt(int sig)
 int main(int argc, char const *argv[])
 {
     signal(SIGALRM, handle_sigalrm);
-    //printf("I'm the SEMAFORO %s process and my PID is: %i\n",argv[1], getpid());
+    signal(SIGINT, handle_sigint);
     semaforo_id = atoi(argv[1]);
     int delay = atoi(argv[2]);
     parent = atoi(argv[3]);
 
     printf("(%i) Semáforo %i: listo para controlar el tránsito\n", getpid(), semaforo_id);
-    //printf("id: %i\n", semaforo_id);
-    //printf("delay: %i\n", delay);
-    //printf("parent pid: %i\n", parent);
 
     signal(SIGABRT,handle_sigabrt);
     changes = 0;
@@ -88,7 +90,6 @@ int main(int argc, char const *argv[])
         {
             sleep(delay);
             kill(semaforo_pid, SIGALRM);
-            //printf("ALARM : %i\n",changes);
         }
     }
 
