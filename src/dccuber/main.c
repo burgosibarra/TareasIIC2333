@@ -14,6 +14,7 @@ static int tiempo_entre_turnos;
 static pid_t* repartidores;
 static pid_t fabrica_pid;
 static volatile sig_atomic_t operativo = 1;
+static int estado_semaforo[3] = {1, 1, 1};
 
 int posicion_sem_1;
 int posicion_sem_2;
@@ -82,8 +83,17 @@ void fabrica_crear_repartidor()
       int digitos_6 = (int) floor(log10(abs(tiempo_entre_turnos))) + 1;
       char tiempo_entre_turnos_char[digitos_6];
       sprintf(tiempo_entre_turnos_char, "%d", tiempo_entre_turnos);
+      int digitos_7 = (int) floor(log10(abs(estado_semaforo[0]))) + 1;
+      char sem_1_char[digitos_7];
+      sprintf(sem_1_char, "%d", estado_semaforo[0]);
+      int digitos_8 = (int) floor(log10(abs(estado_semaforo[1]))) + 1;
+      char sem_2_char[digitos_8];
+      sprintf(sem_2_char, "%d", estado_semaforo[1]);
+      int digitos_9 = (int) floor(log10(abs(estado_semaforo[2]))) + 1;
+      char sem_3_char[digitos_9];
+      sprintf(sem_3_char, "%d", estado_semaforo[2]);
       
-      char *args_fabrica[] = {"repartidor", repartidores_creados_char, tiempo_entre_turnos_char,char_int_1, char_int_2, char_int_3, char_int_4, NULL};
+      char *args_fabrica[] = {"repartidor", repartidores_creados_char, tiempo_entre_turnos_char,char_int_1, char_int_2, char_int_3, char_int_4, sem_1_char, sem_2_char, sem_3_char, NULL};
 
       execv("./repartidor", args_fabrica);
       perror("exec failed");
@@ -120,7 +130,15 @@ void fabrica_handle_sigint(int sigum)
 void fabrica_handle_sigusr1(int sigum, siginfo_t *siginfo, void *context)
 {
     int semaforo_status = siginfo->si_value.sival_int;
-
+    if (semaforo_status > 0)
+    {
+      estado_semaforo[abs(semaforo_status)-1] = 1;
+    }else
+    {
+      estado_semaforo[abs(semaforo_status)-1] = 0;
+    }
+    
+        
     printf("(%i) Fábrica: recibí SIGUSR1 del semáforo %i, informaré a los repartidores\n", getpid(), abs(semaforo_status));
 
     for(int index = 0; index < cantidad_repartidores; index++)

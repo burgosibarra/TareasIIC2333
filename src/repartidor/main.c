@@ -20,22 +20,6 @@ static int turnos_a_semaforo_3 = -1;
 static int turnos_a_bodega = -1;
 static int tiempo_entre_turnos;
 static volatile sig_atomic_t operativo = 1;
-/*
-void outputfile()
-{
-    int cantidad = (int) floor(log10(abs(id))) + 1;
-    char char_id[cantidad];
-    sprintf(char_id, "%d", id);
-    char nombre_archivo[] = "repartidor_";
-    strcat(nombre_archivo, char_id);
-    char extension[] = ".txt";
-    strcat(nombre_archivo, extension);
-    FILE *output_file = fopen(nombre_archivo, "w");
-    fprintf(output_file, "%i,%i,%i,%i\n", turnos_a_semaforo_1, turnos_a_semaforo_2, turnos_a_semaforo_3, turnos_a_bodega);
-    fclose(output_file);
-    
-    printf("(%i) Repartidor %i: ya escribí el archivo archivo\n", getpid(), id);
-}*/
 
 void outputfile()
 {
@@ -185,7 +169,9 @@ int main(int argc, char *argv[])
     posicion_3semaforos_bodega[1] = atoi(argv[4]);
     posicion_3semaforos_bodega[2] = atoi(argv[5]);
     posicion_3semaforos_bodega[3] = atoi(argv[6]);
-
+    estado_semaforo[0] = atoi(argv[7]);
+    estado_semaforo[1] = atoi(argv[8]);
+    estado_semaforo[2] = atoi(argv[9]);
     printf("(%i) Repartidor %i: listo para trabajar\n", getpid(), id);
 
     while (operativo){
