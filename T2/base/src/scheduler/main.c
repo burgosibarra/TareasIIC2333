@@ -2,75 +2,79 @@
 #include "../file_manager/manager.h"
 #include <unistd.h>
 #include <math.h>
-
+#include <stdlib.h>
+//Process
 struct process
 {
-    pid_t pid;
-    char* nombre[255];
-    int fabrica;
-    /* Estados:
-        0: Running
-        1: Ready
-        2: Waiting
-        3: Finished
-    */
-    int estado;
-    int cantidad_cpu_burst;
-    int* A;
+    int id;
+    struct process* next;
+    struct process* prev;
+    /*pid_t pid;
+    char** name;
+    int n_fábrica;
+    int state; //0:running, 1:ready, 2:waiting, 3:finished
+    int** bursts;*/
 };
-typedef struct process Process;
+struct process* process_init(int id){
+    struct process* new = malloc(sizeof(struct process));
+    new->id=id;
+    new->next=NULL;
+    new->prev=NULL;
+    return new;
+}
 
-/* Inicia y retorna un proceso */
-Process processs_init(int pid, char* nombre, int fabrica, int estado, int CPU_burst)
-{
-    int A[2 * CPU_burst - 1];
-    Process proceso;
-    proceso.pid = pid;
-    strcpy(proceso.nombre, nombre);
-    proceso.fabrica = fabrica;
-    proceso.estado = estado;
-    proceso.cantidad_cpu_burst = CPU_burst;
-    proceso.A = A;
-    return proceso;
+//borra a todos los procesos que están después de el current en el queue y luego borra al current
+//si no está en la queue solo borra al current
+int destroy_process(struct process* current){
+    if (current->next)
+    {
+        destroy_process(current->next);
+    }
+    free(current);
+    return 0;
+    
 }
 
 struct queue
 {
-    Process** procesos;
-    /* Arreglo de 4 enteros:
-        si el índice i está en 0 es que la fábrica i no tiene procesos en la cola
-        si el índice i está en 1 es que la fábrica i    tiene procesos en la cola
-    */
-    int cantidad_de_procesos;
-    int* presencia_fabrica;
+    int processes_in_queue;
+    struct process* first;
+    struct process* last;
 };
-typedef struct queue Queue;
 
-/* Inicia y retorna una cola*/
-Queue queue_init(int numero_de_procesos)
-{
-    Process** queue = calloc(numero_de_procesos, sizeof(Process*));
-    int* presencia_fabrica = {0, 0, 0, 0};
-    Queue new_queue;
-    new_queue.procesos = queue;
-    new_queue.cantidad_de_procesos = numero_de_procesos;
-    new_queue.presencia_fabrica = presencia_fabrica;
-    return new_queue;
+struct queue* queue_init(){
+    struct queue* new = malloc(sizeof(struct queue));
+    new->processes_in_queue = 0;
+    new->first = NULL;
+    new->last = NULL;
+    return new;
 }
-
-/* Agrega un proceso en un espacio libre de la cola*/
-Queue agregar_proceso(Queue cola, Process* proceso)
-{
-    for (int index = 0; index < cola.cantidad_de_procesos; index++)
+int append_process(struct queue* queue, struct process* new){
+    if (queue->first)
     {
-        if (cola.procesos[index] == NULL)
-        {
-            cola.procesos[index] = proceso;
-            cola.presencia_fabrica[proceso->fabrica] = 1;
-            break;
-        }
+        queue->last->next = new;
+        new->prev = queue->last;
+        queue->last = new;
+    }else
+    {
+        queue->first = new;
+        queue->last = new;
     }
+    return 0;
+    
+    
 }
+//ordena destroy_process desde el primer proceso de la queue y luego destruye a la queue
+int destroy_queue(struct queue* current){
+    if (current->first)
+    {
+        destroy_process(current->first);
+    }
+    free(current);
+    return 0;
+}
+
+
 
 //esta función calcula el quantum
 double Quantum(int n, int Q, int f)
@@ -80,13 +84,26 @@ double Quantum(int n, int Q, int f)
 {
   int denom = n * f;
   double result = (double) Q/denom; 
-  floor(result);
+  result = floor(result);
   return result;
 }
 
 int main(int argc, char **argv)
 {
-    printf("Hello T2!\n");
+    struct process* p1 = process_init(1);
+    struct process* p2 = process_init(2);
+    struct process* p3 = process_init(3);
+    struct process* p4 = process_init(4);
+
+    struct queue* cola = queue_init();
+    append_process(cola, p1);
+    append_process(cola, p2);
+    append_process(cola, p3);
+    append_process(cola, p4);
+    printf("first:%i, second:%i, third:%i, fourth:%i\n", cola->first->id, cola->first->next->id, cola->first->next->next->id, cola->last->id);
+
+    destroy_queue(cola);
+    /*printf("Hello T2!\n");
 
     int Q;
     if (argc == 3)
@@ -95,7 +112,7 @@ int main(int argc, char **argv)
     }
     else if (argc == 4)
     {
-        Q = argv[3];   
+        Q = atoi(argv[3]);   
     }
     else
     {
@@ -111,9 +128,8 @@ int main(int argc, char **argv)
         printf(
                 "\tProcess %s from factory %s has init time of %s and %s bursts.\n",
                 line[0], line[2], line[1], line[3]);
-        /**/
     }
 
 
-    input_file_destroy(file);
+    input_file_destroy(file);*/
 }
