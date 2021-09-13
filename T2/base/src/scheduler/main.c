@@ -46,10 +46,17 @@ struct process* process_init(int id, char* nombre, int n_fabrica, int state, int
     new->n_fabrica = n_fabrica;
     new->state = state;
     new->cantidad_bursts = cantidad_bursts;
-    new->bursts = burst;
+    //new->bursts = burst;
+    int* array = malloc(cantidad_bursts * sizeof(int));
+    for(int index = 0; index < cantidad_bursts; index++)
+    {
+        array[index] = burst[index];
+    }
+    new->bursts = array;
     new->veces_elegido_para_cpu = 0;
     new->tiempo_ingreso = tiempo_ingreso;
     new->tiempo_salida = 0;
+    new->veces_interrupciones = 0;
     new->response_time = -1;
     new->tiempo_burst = tiempo_total_burst(burst, cantidad_bursts);
     new->next=NULL;
@@ -64,6 +71,7 @@ int destroy_process(struct process* current){
     //{
     //   destroy_process(current->next);
     //}
+    free(current->bursts);
     free(current);
     return 0;
     
@@ -103,6 +111,8 @@ int append_process(struct queue* queue, struct process* new){
     queue->procesos_en_cola = queue->procesos_en_cola + 1;
     queue->procesos_por_fabrica[new->n_fabrica - 1] = queue->procesos_por_fabrica[new->n_fabrica - 1] + 1;
     
+    printf("[t* = %i]: El proceso %s ingresa a la cola\n", tiempo, new->nombre);
+    
     return 0;  
 }
 
@@ -130,11 +140,20 @@ int destroy_queue(struct queue* current){
 
 int avanzar_un_segundo(struct process* current){
     int iter = current-> cantidad_bursts;
+
+    //for(int index = 0; index < iter; index++)
+    //{
+    //    printf("C: %i\n", current->bursts[index]);
+    //}
+
+
     for (int i = 0; i < iter; i++)
     {
         if (current->bursts[i]>0)
         {
+            //printf("A: %i\n", current->bursts[i]);
             current->bursts[i] = current->bursts[i] - 1;
+            //printf("A: %i\n", current->bursts[i]);
             return current->bursts[i];
         } 
     }
@@ -150,7 +169,7 @@ int ultimo_burst(struct process* current){
     return 0;
 }
 int finalizar(struct process** lista_de_procesos, int cantidad){
-    printf("ENTRE A FINALIZAR\n");
+    //printf("[ENTRE A FINALIZAR]\n");
     for (int i = 0; i < cantidad; i++)
     {
         if (lista_de_procesos[i]->state != 3)
@@ -159,11 +178,11 @@ int finalizar(struct process** lista_de_procesos, int cantidad){
         }
     }
     return 1;
-    
 }
 
 void cambio_de_estado(struct process* proceso, int estado)
 {
+    proceso->state = estado;
     if (proceso->state == 0)
     {
         printf("[t = %i] El proceso %s cambio a estado running\n", tiempo, proceso->nombre);
@@ -180,7 +199,6 @@ void cambio_de_estado(struct process* proceso, int estado)
     {
         printf("[t = %i] El proceso %s cambio a estado finished\n", tiempo, proceso->nombre);
     }   
-    proceso->state = estado;
 }
 
 
@@ -194,7 +212,7 @@ void actualizar_waiting(struct queue* cola){
             printf("[t = %i] El proceso %s aun debe esperar %i segundos\n", tiempo, current->nombre, waiting_time);
             if (waiting_time == 0)
             {
-                printf("cambiando estado a ready\n");
+                //printf("cambiando estado a ready\n");
                 cambio_de_estado(current, 1);
                 //current->state = 1;
             }
@@ -380,6 +398,11 @@ int main(int argc, char **argv)
         lista_de_procesos[i] = process_init(i, line[0], atoi(line[2]), 1, cantidad_bursts, burst_array, atoi(line[1]));
         printf("[t = %i] El proceso %s ha sido creado\n", tiempo, lista_de_procesos[i]->nombre);
 
+        //for(int index = 0; index < cantidad_bursts; index++)
+        //{
+        //    printf("B: %i\n", lista_de_procesos[i]->bursts[index]);
+        //}
+
     }
     struct queue* cola = queue_init();
     struct process* cpu = NULL; 
@@ -391,7 +414,7 @@ int main(int argc, char **argv)
         {
             quantum--;
             int burst_restante = avanzar_un_segundo(cpu);
-
+            printf("[t* = %i] El proceso %s le queda un tiempo de burst de: %i\n", tiempo, cpu->nombre, burst_restante);
             if (burst_restante == 0)
             {
                 if (ultimo_burst(cpu))
@@ -414,7 +437,7 @@ int main(int argc, char **argv)
 
             else if (quantum == 0)
             {
-                printf("HOLA se acabo el quantum\n");
+                //printf("HOLA se acabo el quantum\n");
                 cambio_de_estado(cpu, 1);
                 //cpu->state = 1;
                 cpu->veces_interrupciones++;
@@ -435,12 +458,12 @@ int main(int argc, char **argv)
                 cpu = temp;
                 cpu->veces_elegido_para_cpu++;
                 quantum = calcular_quantum(cola->procesos_por_fabrica[cpu->n_fabrica - 1], Q, fabricas_en_cola(cola));
+                printf("[t* = %i] Se ha asignado un quantum de %i a %s\n", tiempo, quantum, cpu->nombre);
                 if (cpu->response_time == -1)
                 {
                     cpu->response_time = tiempo;
                 }
                 remover_proceso_en_cola(cola, cpu);
-                printf("se pasa el proceso a running\n");
                 cambio_de_estado(cpu, 0);
                 //cpu->state = 0;
             }
