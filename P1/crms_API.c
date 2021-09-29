@@ -9,12 +9,6 @@ int PCB_POINTER_SIZE = 256;
 int PCB_SUBPOINTER_SIZE = 21;
 int PAGE_TABLE_SIZE = 32;
 
-void binchar(char character)
-{
-    char output[9];
-    itoa(character, output, 2);
-    printf("%s\n", output);
-}
 
 
 int name_coincidence(unsigned char* pcb_table, int position, char* file_name)
@@ -34,7 +28,7 @@ CrmsFile* cr_open(int process_id, char* file_name, char mode)
     memory = fopen(path,"rb");  // r for read, b for binary
 
     unsigned char pcb_table[PCB_SIZE];
-    fread(pcb_table, sizeof(pcb_table), 1, memory); // read 10 bytes to our buffer
+    fread(pcb_table, sizeof(pcb_table), 1, memory); // read PCB_SIZE bytes to our buffer
 
     for (int pointer = 0; pointer < PCB_SIZE; pointer = pointer + PCB_POINTER_SIZE)
     {
@@ -52,7 +46,7 @@ CrmsFile* cr_open(int process_id, char* file_name, char mode)
                          subpointer < PCB_POINTER_SIZE - PAGE_TABLE_SIZE;
                          subpointer = subpointer + PCB_SUBPOINTER_SIZE)
                     {
-                        if (name_coincidence(pcb_table, pointer + subpointer + 1, file_name))
+                        if (name_coincidence(pcb_table, pointer + subpointer + 1, file_name) && atoi(pcb_table[pointer + subpointer]) == 0x01)
                         {
                             // Verificar validez
                             //Crear el struct
