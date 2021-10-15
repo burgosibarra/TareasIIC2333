@@ -28,13 +28,22 @@ int PROCESS_FILE_VIRTUAL_MEMORY = 4;
 int cr_read(CrmsFile* file_desc, void* buffer, int n_bytes)
 {
     FILE* memory;
-    memory = fopen(path, "rb");
+    memory = fopen(path, "r+b");
     // en file_desc debría estar la dirección virtual del archivo 
     fclose(memory);
 
     char status;
     char process_id;
+    int virtual_dir = file_desc->virtual_address;
+    int SEG_MASK = 0b00001111100000000000000000000000;
+    int OFFSET_MASK = 0b00000000011111111111111111111111;
+    int SEG_SHIFT = 23;
     int VPN;
+    int page;
+    int valid_mask = 128;
+    int pfn_mask = 127;
+    int valid_shift = 7;
+    int valid;
     int PFN;
     int offset;
     int physicalAddress;
@@ -50,23 +59,16 @@ int cr_read(CrmsFile* file_desc, void* buffer, int n_bytes)
             fseek(memory,210, SEEK_CUR); // pasamos las entradas de archivos
             page_table = ftell(memory); // guardamos la posición de la tabla de páginas del proceso
             // separamos la VPN de el offset en la dirección virtual
-            int virtual_dir = file_desc->virtual_address;
-            int SEG_MASK = 0b00001111100000000000000000000000;
-            int OFFSET_MASK = 0b00000000011111111111111111111111;
-            int SEG_SHIFT = 23;
             VPN = (virtual_dir & SEG_MASK) >> SEG_SHIFT;
             offset = virtual_dir & OFFSET_MASK;
 
-            int page;
+            
             fseek(memory ,VPN, SEEK_CUR); // nos movemos hasta la entrada número segment
             fread(&page, 1, 1, memory); // leemos la entrada 1bit de validez y 7 de PFN
             // se paramos el bit de validez del PFN
-            int valid_mask = 128;
-            int pfn_mask = 127;
-            int valid_shift = 7;
-            int valid = (page & valid_mask) >> valid_shift;
-            int PFN = virtual_dir & OFFSET_MASK;
-            int physicalAddress = PFN + offset; // obtenemos la dirección fisica como la dirección de la pagina + el offset
+            valid = (page & valid_mask) >> valid_shift;
+            PFN = page & pfn_mask;
+            physicalAddress = PFN + offset; // obtenemos la dirección fisica como la dirección de la pagina + el offset
             // continuamos moviendonos hasta llegar al final de las tablas
         }
         else
@@ -80,17 +82,44 @@ int cr_read(CrmsFile* file_desc, void* buffer, int n_bytes)
     if (n_bytes+offset<=8388608) // si solo tenemos que leer una página
     {
         /* leer los n_bytes */
-        fread(buffer, n_bytes, 1, memory); 
+        fseek(memory, offset, SEEK_CUR); // avanzamos el offset
+        fread(buffer, n_bytes, 1, memory); //leemos los n bytes
         
-    }else
+    }else // si hay que leer más de una página
     {
         /*hay que leer hasta donde se pueda y seguir a la siguiente página*/
         bytes_read = 0;
         while (bytes_read<n_bytes) // mientras no terminemos de leer 
         {
             /*leemos lo que podamos*/
-            fseek(memory, page_table, SEEK_SET); //volvemos a la tabla de páginas
-            /*buscamos la siguiente página*/
+            if (bytes_read==0) // si es la primera página
+            {
+                /* code */
+            }else if ((n_bytes-bytes_read)+offset>8388608) // es una página intermedia
+            {
+                /* code */
+            }else if ((n_bytes-bytes_read)+offset<=8388608) // es la última página
+            {
+                /* code */
+            }
+            
+            if (bytes_read<n_bytes) // si aún no terminamos de leer
+            {
+                fseek(memory, page_table, SEEK_SET); //volvemos a la tabla de páginas
+                VPN = VPN+1; // nos movemos a la siguiente página
+                fseek(memory ,VPN, SEEK_CUR); // nos movemos hasta la entrada número segment
+                fread(&page, 1, 1, memory); // leemos la entrada 1bit de validez y 7 de PFN
+
+                // se paramos el bit de validez del PFN
+                valid = (page & valid_mask) >> valid_shift;
+                PFN = virtual_dir & OFFSET_MASK;
+                physicalAddress = PFN + offset;
+
+                fseek(memory, 128, SEEK_CUR); // nos saltamos el frame bit map
+                fseek(memory, PFN*8388608, SEEK_CUR); // llegamos a la página designada por el pfn*8MB
+            }
+            
+            
         }
     }
     
